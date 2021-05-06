@@ -1,0 +1,60 @@
+pipeline {
+    agent {
+                docker {
+                    image 'python:3.9'
+                }
+            }
+    stages {
+        stage('Build') {
+            
+            steps {
+                dir("Agile_inv") {
+                    withEnv(["HOME=${env.WORKSPACE}"]) {
+                        sh 'python -m pip install -r requirements.txt'
+                        sh 'python -m py_compile manage.py'
+                    }
+                }
+            }
+        }
+        stage('Migrate') {
+            steps{
+                  dir("Agile_inv") {   
+                    withEnv(["HOME=${env.WORKSPACE}"]) {
+                        sh 'python manage.py makemigrations'
+                        sh 'python manage.py migrate'
+                    }
+                  }
+            }
+        }
+        stage('test') {
+            
+            steps {
+                    withEnv(["HOME=${env.WORKSPACE}"]) {
+                         dir("Agile_inv") {
+                            sh 'python manage.py test'
+                         }
+                    }
+                    
+                }
+            }
+        stage('load') {
+            
+            steps {
+                withEnv(["HOME=${env.WORKSPACE}"]) {
+                         dir("Agile_inv") {
+                            sh 'pip install django-silk'
+                            sh 'python manage.py collectstatic'
+                         }
+                }
+                }
+            }
+        
+        }
+    post {
+            always {
+            mail to: 'razielp18@gmail.com',
+                subject: "Status of pipeline: ${currentBuild.fullDisplayName}",
+                body: "${env.BUILD_URL} has result ${currentBuild.result}"
+            }
+         }
+    }
